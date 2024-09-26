@@ -27,9 +27,7 @@ services:
       - "${PORT}:${PORT}"
     depends_on:
       - postgres
-    volumes:
-      - .:/app
-    command: npm run start
+
 
 volumes:
   postgres_data:
