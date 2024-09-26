@@ -61,7 +61,7 @@ Make sure you have the following installed:
 1. Navigate to the `daily-tasks-report` directory:
 
    ```bash
-   cd daily-tasks-report
+   cd daily-tasks-fe
    ```
 
 2. Install the dependencies:
