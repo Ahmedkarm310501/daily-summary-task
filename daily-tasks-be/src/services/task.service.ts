@@ -6,6 +6,9 @@ import { ApiResponse } from "../shared/api/api.response";
 import { LogicalError, NotFoundError } from "../shared/api/api.error";
 import dayjs, { Dayjs } from "dayjs";
 
+import isBetween from "dayjs/plugin/isBetween";
+
+dayjs.extend(isBetween);
 export class TaskService {
   private taskRepository = AppDataSource.getRepository(Task);
 
@@ -40,9 +43,45 @@ export class TaskService {
     return totalHours;
   }
 
+  private async checkIfTaskOverlaps(
+    employeeId: number,
+    from: Dayjs,
+    to: Dayjs
+  ): Promise<void> {
+    const availableTasks = await this.taskRepository.find({
+      where: {
+        employee: { id: employeeId },
+      },
+    });
+    const isInSameSlot = availableTasks.some((task) => {
+      const taskStart = dayjs(task.from);
+      const taskEnd = dayjs(task.to);
+
+      // split this into four vars
+      const startWithin = dayjs(from).isBetween(taskStart, taskEnd, null, "[)");
+      const endWithin = dayjs(to).isBetween(taskStart, taskEnd, null, "(]");
+      const startOf = dayjs(taskStart).isBetween(from, to, null, "[)");
+      const endOf = dayjs(taskEnd).isBetween(from, to, null, "(]");
+
+      // Check if the new task overlaps with the existing task
+      return startWithin || endWithin || startOf || endOf;
+    });
+
+    if (isInSameSlot) {
+      throw new LogicalError("The task overlaps with an existing task.");
+    }
+  }
+
   async createTask(createTaskRequest: CreateTaskRequest): Promise<Task> {
     const fromDate = this.getDateFromTime(createTaskRequest.from);
     const toDate = this.getDateFromTime(createTaskRequest.to);
+
+    // Check if the new task overlaps with any existing task
+    await this.checkIfTaskOverlaps(
+      createTaskRequest.employeeId,
+      fromDate,
+      toDate
+    );
     // Calculate the hours of the new task
     const newTaskHours = toDate.diff(fromDate, "hour", true);
 
